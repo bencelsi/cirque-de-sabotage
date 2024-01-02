@@ -3,22 +3,39 @@
 	<title>Ivan's Game</title>
 	<link rel="icon">
 	<style>
-		body      { background-color: white; }
+		body    { background-color: white; text-align: center;}
+		.card	{ height: 25px; width: 25px; text-align: center; display: inline-block;}
+		.deck { margin: auto; width: 300px; text-align: center;}
+		
 	</style>
 </head>
 <body>
-	<div id = state>
-		
+	<h1>
+		Ivan's Game
+	</h1>
+	<div id='state'>
+		Player 1
+		<div class='deck' id="player1"></div>
+		<br>
+		Player 2
+		<div class='deck' id="player2"></div>
 	</div>
-	<div class="button" id="promoteButton">
-		promote
+	<br>
+	<div id="playerDisplay">
+		Player 1's Turn:
 	</div>
-	<div class="button" id="passButton">
-		pass
+	<div id='buttons'>
+		<button class="button" id="actionButton">
+		</button>
+		<br>
+		<button class="button" id="promoteButton">
+			Promote
+		</button>
+		<button class="button" id="passButton">
+			Pass
+		</button>
 	</div>
-	<div class="button" id="actionButton">
-		action
-	</div>
+	
 
 
 <script type="text/javascript">
@@ -45,19 +62,25 @@ document.getElementById('actionButton').onclick = function() {
 }
 
 function printState() {
+
 	for (i = 0; i < numPlayers; i++) {
-		console.log("player " + i + ":")
- 		console.log('Deck: ' + deckState[i])
- 		console.log('Graveyard: ' + graveyardState[i])
+		let playerDeck = document.getElementById("player" + (i + 1))
+		playerDeck.innerHTML = ''
+		for (j = 0; j < deckState[i].length; j++) {
+			let card = document.createElement('div')
+			card.setAttribute('class', 'card')
+			card.style.backgroundColor = getColor(deckState[i][j][0])
+			card.innerHTML = deckState[i][j][1]
+			playerDeck.appendChild(card)
+		}
 	}
+	document.getElementById('actionButton').innerHTML = getDescription(deckState[currentPlayer][0])
 }
 printState()
-console.log('currentPlayer : ' + currentPlayer)
-console.log()
+
 //card represented as {int player, int index, boolean isGraveyard}
 
 function play(operation) {
-
 	switch (operation) {
 		case 'action' :
 			action()
@@ -72,9 +95,7 @@ function play(operation) {
 
 	currentPlayer = currentPlayer == numPlayers - 1 ? 0 : currentPlayer + 1
 	printState()
-	console.log()
-
-	console.log('currentPlayer : ' + currentPlayer)
+	document.getElementById('playerDisplay').innerHTML = "Player " + (currentPlayer + 1) + "'s turn:"
 
 }
 
@@ -86,7 +107,9 @@ function pass() {
 
 function promote() {
 	pass()
-	currentDeck[currentDeck.length - 1][1]++
+	if (currentDeck[currentDeck.length - 1][1] < 4) {
+		currentDeck[currentDeck.length - 1][1]++
+	}
 }
 
 function action() {
@@ -98,19 +121,21 @@ function action() {
 
 	currentDeck = deckState[currentPlayer]
 
-	// RED
 	switch (color) {
 		case 'R' :
 			switch (level) {
 				case 1: 
-					console.log('hi!')
+					break
 				case 2:
+					break
 				case 3:
+					break
 				case 4:
+					break
 			}
-		case 'G':
+		case 'G': 
 			switch (level) {
-				case 1: //Give this card.
+				case 1: // Give this card.
 					if (numPlayers != 2) {
 						//select player
 					}
@@ -127,12 +152,9 @@ function action() {
 				case 3: // Give one of your cards. Set it to level 2.
 					// select card to give 
 					// select 
-
-
 				case 4: // Bury a top card.
 					//
 					// select player to bury
-
 			}
 			break
 		case 'Y':
@@ -160,6 +182,44 @@ function action() {
 	}
 }
 
+function getDescription(card) {
+	let color = card[0]
+	let level = card[1]
+	switch (color) {
+		case 'R' :
+			switch (level) {
+				case 1: return "Steal an opponent's top card."
+				case 2: return "Unearth a card from a graveyard. Set it to level 2."
+				case 3: return "Steal an opponent's card. If it's level 2 or higher, set it to level 2."
+				case 4: return "Take 2 turns."
+			}
+		case 'Y':
+			switch (level) {
+				case 1: return 'Swap the top two cards in one deck. Or, swap the top cards from two opponents decks.'
+				case 2: return 'Move a top card anywhere within a deck.'
+				case 3: return 'Move any other card anywhere within a deck.'
+				case 4: return 'Move a card anywhere within a deck (including this card).'
+			}
+		case 'G':
+			switch (level) {
+				case 1: return 'Give this card.'
+				case 2: return 'Give your top card.'
+				case 3: return 'Give one of your cards. Set it to level 2.'
+				case 4: return 'Bury a top card.'
+			}
+		case 'B': return 'Copy a top card.'
+	}
+}
+
+function getColor(color) {
+	console.log(color)
+	switch (color) {
+		case 'R': return 'Red'
+		case 'Y': return 'Yellow'
+		case 'G': return 'Green'
+		case 'B': return 'Blue'
+	}
+}
 
 </script>
 
