@@ -1,23 +1,24 @@
 <html>
 <head>
-	<title>Ivan's Game</title>
-	<link rel="icon">
+	<title>Ivan Game</title>
+	<link rel='icon' type='image/x-icon' href='favicon.ico'>
 	<style>
-		body    { background-color: white; text-align: center;}
-		.card	{ height: 25px; width: 25px; text-align: center; display: inline-block;}
-		.deck { margin: auto; width: 300px; text-align: center;}
-		
+		body    { margin: auto; text-align: center;}
+		.card	{ height: 25px; width: 25px; display: inline-block; margin: 5px;}
+		.deck   { margin: auto; width: 800px; }
+		#actionDescription { margin: auto; width: 300px }
+		#topCard { border-style: solid; }
 	</style>
 </head>
 <body>
 	<h1>
-		Ivan's Game
+		Ivan Game
 	</h1>
 	<div id='state'>
-		Player 1
+		<h3>Player 1</h3>
 		<div class='deck' id="player1"></div>
 		<br>
-		Player 2
+		<h3>Player 2</h3>
 		<div class='deck' id="player2"></div>
 	</div>
 	<br>
@@ -26,59 +27,68 @@
 	</div>
 	<div id='buttons'>
 		<button class="button" id="actionButton">
+			Action
 		</button>
-		<br>
 		<button class="button" id="promoteButton">
-			Promote
+			Upgrade
 		</button>
 		<button class="button" id="passButton">
 			Pass
 		</button>
 	</div>
-	
-
-
+	<br>
+	<div id="actionDescription">
+	</div>
+	<div id="display">
+	</div>
 <script type="text/javascript">
 	
 let numPlayers = 2
 let deckState = []
-let graveyardState = [];
-let currentPlayer = 0;
+let graveyardState = []
+let currentPlayer = 0
 for (i = 0; i < numPlayers; i++) {
 	deckState[i] = [['R', 1], ['G', 1], ['Y', 1], ['B', 1], ['R', 1], ['G', 1], ['Y', 1], ['B', 1]]; 
 	graveyardState[i] = ['R', 'G', 'Y', 'B'];
 }
 
-document.getElementById('promoteButton').onclick = function() {
+get('promoteButton').onclick = function() {
 	play('promote')
 }
 
-document.getElementById('passButton').onclick = function() {
+get('passButton').onclick = function() {
 	play('pass')
 }
 
-document.getElementById('actionButton').onclick = function() {
+get('actionButton').onclick = function() {
 	play('action')
 }
 
-function printState() {
+// idea - each card has unique index 1-n.
+// so we just store decks as: [1,3,2,4] etc.
+// and have a map of cardIndex to powerlevel. (-x = graveyard, x is player #)
+// color is determined by mod.
 
+function printState() {
 	for (i = 0; i < numPlayers; i++) {
-		let playerDeck = document.getElementById("player" + (i + 1))
+		let playerDeck = get("player" + (i + 1))
 		playerDeck.innerHTML = ''
 		for (j = 0; j < deckState[i].length; j++) {
 			let card = document.createElement('div')
 			card.setAttribute('class', 'card')
 			card.style.backgroundColor = getColor(deckState[i][j][0])
+			if (i == currentPlayer && j == 0) {
+				card.setAttribute('id', 'topCard')
+			}
 			card.innerHTML = deckState[i][j][1]
 			playerDeck.appendChild(card)
 		}
 	}
-	document.getElementById('actionButton').innerHTML = getDescription(deckState[currentPlayer][0])
+	let color = getColor(deckState[currentPlayer][0][0])
+	get('actionDescription').innerHTML = color + " " + deckState[currentPlayer][0][1] + " Action: \n" + getDescription(deckState[currentPlayer][0])
+	get('actionDescription').style.backgroundColor = color
 }
 printState()
-
-//card represented as {int player, int index, boolean isGraveyard}
 
 function play(operation) {
 	switch (operation) {
@@ -92,12 +102,11 @@ function play(operation) {
 			pass()
 			break
 	}
-
 	currentPlayer = currentPlayer == numPlayers - 1 ? 0 : currentPlayer + 1
 	printState()
-	document.getElementById('playerDisplay').innerHTML = "Player " + (currentPlayer + 1) + "'s turn:"
-
+	get('playerDisplay').innerHTML = "Player " + (currentPlayer + 1) + "'s turn:"
 }
+
 
 function pass() {
 	currentDeck = deckState[currentPlayer];
@@ -112,10 +121,14 @@ function promote() {
 	}
 }
 
-function action() {
+function action(level = 0) {
+	
 	let cardToPlay = deckState[currentPlayer][0]
 	let color = cardToPlay[0]
-	let level = cardToPlay[1]
+	
+	if (level == 0) { //otherwise, played as a blue
+		let level = cardToPlay[1]
+	}
 
 	pass()
 
@@ -151,16 +164,17 @@ function action() {
 					break
 				case 3: // Give one of your cards. Set it to level 2.
 					// select card to give 
-					// select 
+					cardToGive = selectCard(player, level)
+
+					
 				case 4: // Bury a top card.
-					//
-					// select player to bury
+					// select card to bury
 			}
 			break
 		case 'Y':
 			switch (level) {
 				case 1: // Swap the top two cards in one deck. Or, swap the top cards from two opponents decks.
-					//
+					
 					break
 				case 2: // Move a top card anywhere within a deck.
 					// 1. Select top card
@@ -181,6 +195,26 @@ function action() {
 
 	}
 }
+
+
+//selectableCards is a 2d array, where [player index][cards]
+function selectCard(players, level, onlyTopCards, exclude) {
+	get('display').innerHTML = "Select a card"
+	for (let player = 0; player < numPlayers; player++) {
+		for (let cardIndex = 0; cardIndex < deckState[player].length; cardIndex++) {
+			if (players.includes(player) && 
+				deckState[player][cardIndex][1] 
+				) {
+
+			} else {
+				
+			}
+			
+		}
+	}
+	
+}
+
 
 function getDescription(card) {
 	let color = card[0]
@@ -212,7 +246,6 @@ function getDescription(card) {
 }
 
 function getColor(color) {
-	console.log(color)
 	switch (color) {
 		case 'R': return 'Red'
 		case 'Y': return 'Yellow'
@@ -221,8 +254,9 @@ function getColor(color) {
 	}
 }
 
+function get(id) {
+	return document.getElementById(id)
+}
 </script>
-
-
 
 </body>
