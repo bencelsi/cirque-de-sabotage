@@ -3,10 +3,11 @@
 	<title>Ivan Game</title>
 	<link rel='icon' type='image/x-icon' href='favicon.ico'>
 	<style>
-		body    { margin: auto; text-align: center;}
-		.card	{ height: 25px; width: 25px; display: inline-block; margin: 5px;}
-		.deck   { margin: auto; width: 800px; }
-		#actionDescription { margin: auto; width: 300px }
+		body    { margin: auto; text-align: center; background-color: white; }
+		.card	{ height: 40px; width: 40px; display: inline-block; margin: 3px; }
+		.graveyardCard	{ height: 20px; width: 20px; display: inline-block; margin: 3px; }
+		.player { display: inline-block; padding-left: 25px; padding-right: 25px; padding-bottom: 10px;}
+		#actionDescription { margin: auto; padding: 20px; width: 300px }
 		#topCard { border-style: solid; }
 	</style>
 </head>
@@ -14,17 +15,33 @@
 	<h1>
 		Ivan Game
 	</h1>
+	<img src='colors.gif'/>
+	<br>
+	<br>
 	<div id='state'>
-		<h3>Player 1</h3>
-		<div class='deck' id="player1"></div>
+		<div id="player0" class="player">
+			<h3>Player 1</h3>
+			<div class='deck' id="deck0"></div>
+			<br>
+			<div class='deck' id="graveyard0"></div>
+		</div>
 		<br>
-		<h3>Player 2</h3>
-		<div class='deck' id="player2"></div>
+		<div id="player1" class="player">
+			<h3>Player 2</h3>
+			<div class='deck' id="deck1"></div>
+			<br>
+			<div class='deck' id="graveyard1"></div>
+		</div>
 	</div>
+	<br>
+	<br>
 	<br>
 	<div id="playerDisplay">
 		Player 1's Turn:
 	</div>
+	<br>
+	<div id="message"></div>
+	<br>
 	<div id='buttons'>
 		<button class="button" id="actionButton">
 			Action
@@ -37,20 +54,36 @@
 		</button>
 	</div>
 	<br>
-	<div id="actionDescription">
-	</div>
-	<div id="display">
-	</div>
+	<br>
+	<br>
+	<div id="actionDescription"></div>
+	
 <script type="text/javascript">
 	
 let numPlayers = 2
-let deckState = []
-let graveyardState = []
+let numCards = numPlayers * 12
+let levelMap = [] // map of card to level.
+let decks = []
+let graveyards = []
+
+let extraTurns = 0;
+
 let currentPlayer = 0
 for (i = 0; i < numPlayers; i++) {
-	deckState[i] = [['R', 1], ['G', 1], ['Y', 1], ['B', 1], ['R', 1], ['G', 1], ['Y', 1], ['B', 1]]; 
-	graveyardState[i] = ['R', 'G', 'Y', 'B'];
+	decks[i] = []
+	graveyards[i] = []
+	for (j = 0; j < 12; j++) {
+		let cardId = i * 12 + j
+		if (j < 8) { //deck cards
+			levelMap[cardId] = 1
+			decks[i].push(cardId)
+		} else { //graveyard cards
+			levelMap[cardId] = 0
+			graveyards[i].push(cardId)
+		}
+	}
 }
+get("player0").style.backgroundColor = "darkgray"
 
 get('promoteButton').onclick = function() {
 	play('promote')
@@ -64,121 +97,148 @@ get('actionButton').onclick = function() {
 	play('action')
 }
 
-// idea - each card has unique index 1-n.
-// so we just store decks as: [1,3,2,4] etc.
-// and have a map of cardIndex to powerlevel. (-x = graveyard, x is player #)
-// color is determined by mod.
-
-function printState() {
+function printState(newTurn = false) {
 	for (i = 0; i < numPlayers; i++) {
-		let playerDeck = get("player" + (i + 1))
-		playerDeck.innerHTML = ''
-		for (j = 0; j < deckState[i].length; j++) {
+		let deck = get("deck" + i)
+		let graveyard = get("graveyard" + i)
+		deck.innerHTML = ''
+		graveyard.innerHTML = ''
+		for (let j = 0; j < decks[i].length; j++) {
+			let cardId = decks[i][j]
 			let card = document.createElement('div')
 			card.setAttribute('class', 'card')
-			card.style.backgroundColor = getColor(deckState[i][j][0])
-			if (i == currentPlayer && j == 0) {
-				card.setAttribute('id', 'topCard')
-			}
-			card.innerHTML = deckState[i][j][1]
-			playerDeck.appendChild(card)
+			card.setAttribute('id', cardId)
+			card.style.backgroundColor = getColor(decks[i][j])
+			card.innerHTML = levelMap[decks[i][j]]
+			deck.appendChild(card)
+		}
+		for (let j = 0; j < graveyards[i].length; j++) {
+			let cardId = graveyards[i][j]
+			let card = document.createElement('div')
+			card.setAttribute('class', 'graveyardCard')
+			card.setAttribute('id', cardId)
+			card.style.backgroundColor = getColor(graveyards[i][j])
+			graveyard.appendChild(card)
 		}
 	}
-	let color = getColor(deckState[currentPlayer][0][0])
-	get('actionDescription').innerHTML = color + " " + deckState[currentPlayer][0][1] + " Action: \n" + getDescription(deckState[currentPlayer][0])
-	get('actionDescription').style.backgroundColor = color
+	let nextCard = decks[currentPlayer][0];
+	let level = levelMap[nextCard]
+	if (newTurn) {
+		get(decks[currentPlayer][0]).style.border = 'solid'
+		get('actionDescription').innerHTML = getColorName(nextCard) + " " + level + " Action: \n" + getDescription(nextCard % 4, level)
+		get('actionDescription').style.backgroundColor = getColor(nextCard)
+	}
 }
-printState()
+
+printState(true)
 
 function play(operation) {
+	if (extraTurns != 0) {
+		extraTurns--
+	}
 	switch (operation) {
 		case 'action' :
 			action()
 			break
 		case 'promote' :
 			promote()
+			finishTurn()
 			break
 		case 'pass' :
 			pass()
+			finishTurn()
 			break
 	}
-	currentPlayer = currentPlayer == numPlayers - 1 ? 0 : currentPlayer + 1
-	printState()
-	get('playerDisplay').innerHTML = "Player " + (currentPlayer + 1) + "'s turn:"
 }
 
-
-function pass() {
-	currentDeck = deckState[currentPlayer];
+function pass(printAction) {
+	currentDeck = decks[currentPlayer];
 	currentDeck.push(currentDeck[0])
 	currentDeck.shift()
 }
 
 function promote() {
 	pass()
-	if (currentDeck[currentDeck.length - 1][1] < 4) {
-		currentDeck[currentDeck.length - 1][1]++
+	let cardId = currentDeck[currentDeck.length - 1]
+	if (levelMap[cardId] < 4) {
+		levelMap[cardId]++
 	}
 }
 
 function action(level = 0) {
-	
-	let cardToPlay = deckState[currentPlayer][0]
-	let color = cardToPlay[0]
-	
-	if (level == 0) { //otherwise, played as a blue
-		let level = cardToPlay[1]
+	get('buttons').style.display = 'none'
+	let cardToPlay = decks[currentPlayer][0]
+	if (level === 0) { //otherwise, being played as a blue
+		level = levelMap[cardToPlay]
 	}
 
 	pass()
+	printState()
+	currentDeck = decks[currentPlayer]
+	let otherPlayers = []
+	let allPlayers = []
+	for (let player = 0; player < numPlayers; player++) {
+		allPlayers.push(player)
+		if (player != currentPlayer) {
+			otherPlayers.push(player)
+		}
+	}
 
-	currentDeck = deckState[currentPlayer]
-
-	switch (color) {
-		case 'R' :
+	switch (cardToPlay % 4) {
+		case 0 : // RED
 			switch (level) {
-				case 1: 
+				case 1: // Steal an opponent's top card.
+					makeCardsSelectable(filterCards(otherPlayers, level, true),
+						(card) => {
+							let otherPlayer = findPlayerForCard(card)
+							decks[currentPlayer].push(card)
+							decks[otherPlayer].shift()
+							
+							finishTurn()
+						}
+					)
 					break
-				case 2:
+				case 2: // Unearth a card from a graveyard. Set it to level 2.
+					let graveyardCards = []
+					for (let i = 0; i < numPlayers; i++) {
+						graveyardCards = graveyardCards.concat(graveyards[i])
+					}
+					message('Choose a card from a graveyard')
+					makeCardsSelectable(graveyardCards, 
+						(card) => {
+							levelMap[card] = 2
+							let player = findPlayerForCard(card)
+							decks[player].push(card)
+							removeCard(graveyards[player], card)
+							finishTurn()
+						}
+					)
 					break
-				case 3:
+				case 3: // Steal an opponent's card. Set it to level 2.
+					message('Select a card to steal')
+					makeCardsSelectable(filterCards(otherPlayers, level),
+						(card) => {
+							levelMap[card] = 2
+							let otherPlayer = findPlayerForCard(card)
+							decks[currentPlayer].push(card)
+							decks[otherPlayer].splice(decks[otherPlayer].indexOf(card), 1)
+							finishTurn()
+						}
+					)
 					break
-				case 4:
+				case 4: // Take 2 turns.
+					extraTurns += 2
+					message('Take another turn')
 					break
 			}
-		case 'G': 
-			switch (level) {
-				case 1: // Give this card.
-					if (numPlayers != 2) {
-						//select player
-					}
-					var otherPlayer = currentPlayer == 1 ? 0 : 1
-					deckState[otherPlayer].push(currentDeck.pop())
-					break
-				case 2: // Give your top card.
-					if (numPlayers != 2) {
-						//select player
-					}
-					var otherPlayer = currentPlayer == 1 ? 0 : 1
-					deckState[otherPlayer].push(currentDeck.shift())
-					break
-				case 3: // Give one of your cards. Set it to level 2.
-					// select card to give 
-					cardToGive = selectCard(player, level)
-
-					
-				case 4: // Bury a top card.
-					// select card to bury
-			}
-			break
-		case 'Y':
+		case 1: // YELLOW
 			switch (level) {
 				case 1: // Swap the top two cards in one deck. Or, swap the top cards from two opponents decks.
 					
 					break
 				case 2: // Move a top card anywhere within a deck.
-					// 1. Select top card
-					// 2. Select index in deck
+					// 1. Select a top card
+					// 2. Select an index in deck
 					break
 				case 3: // Move any other card anywhere within a deck.
 					// 1. Select a card
@@ -190,73 +250,248 @@ function action(level = 0) {
 					break
 			}
 			break
-		case 'B':
-			// Copy a top card.
+		case 2: // GREEN
+			switch (level) {
+				case 1: // Give this card.
+					if (numPlayers != 2) {
+						//select player
+					}
+					var otherPlayer = currentPlayer == 1 ? 0 : 1
+					decks[otherPlayer].push(currentDeck.pop())
+					finishTurn()
+					break
+				case 2: // Give your top card.
+					if (numPlayers != 2) {
+						//select player
+					}
+					var otherPlayer = currentPlayer == 1 ? 0 : 1
+					decks[otherPlayer].push(currentDeck.shift())
+					finishTurn()
+					break
+				case 3: // Give one of your cards. Set it to level 2.
+					message('Select a card to give')
+					makeCardsSelectable(filterCards([currentPlayer], level),
+						(card) => {
+							levelMap[card] = 2
+							if (numPlayers != 2) {
+								//select player
+							}
+							var otherPlayer = currentPlayer == 1 ? 0 : 1
+							decks[otherPlayer].push(card)
+							removeCard(decks[currentPlayer], card)
+							finishTurn()
+						}
+					)
 
+					//pass a then function , set it as onclick for relevant cards
+
+					break
+				case 4: // Bury a top card.
+					// select card to bury
+					message('Select a top card to bury')
+					makeCardsSelectable(filterCards(allPlayers, level, true),
+						(card) => {
+							let player = findPlayerForCard(card)
+							graveyards[player].push(card)
+							removeCard(decks[player], card)
+							finishTurn()
+						}
+					)
+					break
+			}
+			break
+		case 3: // BLUE
+			message('Select a top card to copy')
+			makeCardsSelectable(filterCards(allPlayers, level, true),
+				(card) => {
+					console.log('!!! ' + card)
+					action()
+				}
+			)
+			// Copy a top card.
 	}
 }
 
+function removeCard(arr, card) {
+	arr.splice(arr.indexOf(card), 1)
+}
 
-//selectableCards is a 2d array, where [player index][cards]
-function selectCard(players, level, onlyTopCards, exclude) {
-	get('display').innerHTML = "Select a card"
-	for (let player = 0; player < numPlayers; player++) {
-		for (let cardIndex = 0; cardIndex < deckState[player].length; cardIndex++) {
-			if (players.includes(player) && 
-				deckState[player][cardIndex][1] 
-				) {
-
-			} else {
-				
+function filterCards(players, level, topCardsOnly = false, exclusions = []) {
+	let result = []
+	for (let player of players) {
+		for (let card of decks[player]) {
+			if (levelMap[card] <= level && !exclusions.includes(card)) {
+				result.push(card)
+				console.log(card)
 			}
-			
+			if (topCardsOnly) {
+				break;
+			}
 		}
 	}
-	
+	console.log(result)
+	return result
 }
 
+function makeCardsSelectable(selectableCards, handleClick) {
+	if (selectableCards.length == 0) {
+		message("This action is not playable")
+		return
+	} else if (selectableCards.length == 1) {
+		handleClick(selectableCards[0])
+	} else {
+		console.log(selectableCards)
+		for (let card = 0; card < numCards; card++) {
+			let element = get(card)
+			if (selectableCards.includes(card)) {
+				element.onclick = () => handleClick(card);
+			} else {
+				element.style.opacity = ".25"
+			}
+		} 
+	}
+}
 
-function getDescription(card) {
-	let color = card[0]
-	let level = card[1]
+function finishTurn() {
+	checkWinConditions()
+	if (extraTurns == 0) {
+		currentPlayer = currentPlayer == numPlayers - 1 ? 0 : currentPlayer + 1
+		for (let player = 0; player < numPlayers; player++) {
+			if (player == currentPlayer) {
+				get("player" + player).style.backgroundColor = "darkgray"
+			} else {
+				get("player" + player).style.backgroundColor = "white"
+			}
+		}
+		get('playerDisplay').innerHTML = "Player " + (currentPlayer + 1) + "'s turn:"
+		message('')
+	}
+	get('buttons').style.display = 'block'
+	printState(true)
+}
+
+let consecutiveWinCondition = 4
+let totalWinCondition = 6
+
+function checkWinConditions() {
+	for (let player = 0; player < numPlayers; player++) {
+		if (checkWin(player)) {
+			alert("PLAYER " + (player + 1) + " WON")
+		}
+	}
+}
+
+function checkWin(player) {
+	let totalReds = 0
+	let consecutiveYellows = 0
+	let onlyGreens = true
+	let totalBlues = 0
+	let consecutiveBlues = 0
+	let onlyBlues = false
+	for (let card of decks[player]) {
+		switch (card % 4) {
+			case 0: // Red
+				totalReds++
+				if (totalReds == totalWinCondition) {
+					return true
+				}
+				consecutiveYellows = 0
+				consecutiveBlues = 0
+				onlyGreens = false
+				onlyBlues = false
+				break
+			case 1: // Yellow
+				consecutiveYellows++
+				if (consecutiveYellows == consecutiveWinCondition) {
+					return true
+				}
+				consecutiveBlues = 0
+				onlyGreens = false
+				onlyBlues = false
+			case 2: // Green
+				consecutiveYellows = 0
+				consecutiveBlues = 0
+				onlyBlues = false
+			case 3: // Blue
+				totalBlues++
+				consecutiveBlues++
+				if (consecutiveBlues == consecutiveWinCondition || totalBlues == totalWinCondition) {
+					return true
+				}
+				consecutiveYellows = 0
+				yellowsInARow = 0
+				onlyGreens = false
+		}
+		if (onlyGreens || onlyBlues) {
+			return true
+		}
+		return false
+	}
+}
+
+function findPlayerForCard(card) {
+	for (let i = 0; i < numPlayers; i++) {
+		if (decks[i].includes(card) || graveyards[i].includes(card)) {
+			return i
+		}
+	}
+}
+
+function getDescription(cardId) {
+	let color = cardId % 4
+	let level = levelMap[cardId]
 	switch (color) {
-		case 'R' :
+		case 0: // Red
 			switch (level) {
 				case 1: return "Steal an opponent's top card."
 				case 2: return "Unearth a card from a graveyard. Set it to level 2."
-				case 3: return "Steal an opponent's card. If it's level 2 or higher, set it to level 2."
+				case 3: return "Steal an opponent's card. Set it to level 2."
 				case 4: return "Take 2 turns."
 			}
-		case 'Y':
+		case 1: // Yellow
 			switch (level) {
 				case 1: return 'Swap the top two cards in one deck. Or, swap the top cards from two opponents decks.'
 				case 2: return 'Move a top card anywhere within a deck.'
 				case 3: return 'Move any other card anywhere within a deck.'
 				case 4: return 'Move a card anywhere within a deck (including this card).'
 			}
-		case 'G':
+		case 2: // Green
 			switch (level) {
 				case 1: return 'Give this card.'
 				case 2: return 'Give your top card.'
 				case 3: return 'Give one of your cards. Set it to level 2.'
 				case 4: return 'Bury a top card.'
 			}
-		case 'B': return 'Copy a top card.'
+		case 3: // Blue
+			return 'Copy a top card.'
 	}
 }
 
 function getColor(color) {
-	switch (color) {
-		case 'R': return 'Red'
-		case 'Y': return 'Yellow'
-		case 'G': return 'Green'
-		case 'B': return 'Blue'
+	switch (color % 4) {
+		case 0: return 'Red'
+		case 1: return '#FFBF00'
+		case 2: return 'Green'
+		case 3: return 'CornflowerBlue'
+	}
+}
+
+function getColorName(color) {
+	switch (color % 4) {
+		case 0: return 'Red'
+		case 1: return 'Yellow'
+		case 2: return 'Green'
+		case 3: return 'Blue'
 	}
 }
 
 function get(id) {
 	return document.getElementById(id)
 }
-</script>
 
+function message(message) {
+	get('message').innerHTML = message
+}
+
+</script>
 </body>
