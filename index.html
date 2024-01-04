@@ -7,6 +7,7 @@
 		.card	{ height: 40px; width: 40px; display: inline-block; margin: 3px; }
 		.graveyardCard	{ height: 20px; width: 20px; display: inline-block; margin: 3px; }
 		.player { display: inline-block; padding-left: 25px; padding-right: 25px; padding-bottom: 10px;}
+		.index {display: inline-block; padding-left: 25px; padding-right: 25px; padding-bottom: 10px;}
 		#actionDescription { margin: auto; padding: 20px; width: 300px }
 		#topCard { border-style: solid; }
 	</style>
@@ -65,7 +66,6 @@ let numCards = numPlayers * 12
 let levelMap = [] // map of card to level.
 let decks = []
 let graveyards = []
-
 let extraTurns = 0;
 
 let currentPlayer = 0
@@ -138,13 +138,17 @@ function play(operation) {
 	}
 	switch (operation) {
 		case 'action' :
-			action()
+			let card = decks[currentPlayer][0]
+
+			action(card, levelMap[card])
 			break
 		case 'promote' :
+			playSound('upgrade')
 			promote()
 			finishTurn()
 			break
 		case 'pass' :
+			playSound('pass')
 			pass()
 			finishTurn()
 			break
@@ -165,15 +169,12 @@ function promote() {
 	}
 }
 
-function action(level = 0) {
+function action(card, cardLevel, powerLevel = cardLevel, asBlue = false) {
 	get('buttons').style.display = 'none'
-	let cardToPlay = decks[currentPlayer][0]
-	if (level === 0) { //otherwise, being played as a blue
-		level = levelMap[cardToPlay]
-	}
-
-	pass()
-	printState()
+	if (!asBlue) {
+		pass()
+		printState()
+	} 
 	currentDeck = decks[currentPlayer]
 	let otherPlayers = []
 	let allPlayers = []
@@ -184,12 +185,13 @@ function action(level = 0) {
 		}
 	}
 
-	switch (cardToPlay % 4) {
+	switch (card % 4) {
 		case 0 : // RED
-			switch (level) {
-				case 1: // Steal an opponent's top card.
-					makeCardsSelectable(filterCards(otherPlayers, level, true),
+			switch (cardLevel) {
+				case 1: // 🟥 Steal an opponent's top card.
+					makeCardsSelectable(filterCards(otherPlayers, powerLevel, true),
 						(card) => {
+							playSound('red')
 							let otherPlayer = findPlayerForCard(card)
 							decks[currentPlayer].push(card)
 							decks[otherPlayer].shift()
@@ -198,14 +200,16 @@ function action(level = 0) {
 						}
 					)
 					break
-				case 2: // Unearth a card from a graveyard. Set it to level 2.
+				case 2: // 🟥 🟥 Unearth a card from a graveyard. Set it to level 2.
 					let graveyardCards = []
 					for (let i = 0; i < numPlayers; i++) {
 						graveyardCards = graveyardCards.concat(graveyards[i])
 					}
 					message('Choose a card from a graveyard')
+					playSound('bink')
 					makeCardsSelectable(graveyardCards, 
 						(card) => {
+							playSound('unearth')
 							levelMap[card] = 2
 							let player = findPlayerForCard(card)
 							decks[player].push(card)
@@ -214,10 +218,12 @@ function action(level = 0) {
 						}
 					)
 					break
-				case 3: // Steal an opponent's card. Set it to level 2.
+				case 3: // 🟥 🟥 🟥 Steal an opponent's card. Set it to level 2.
 					message('Select a card to steal')
-					makeCardsSelectable(filterCards(otherPlayers, level),
+					playSound('bink')
+					makeCardsSelectable(filterCards(otherPlayers, powerLevel),
 						(card) => {
+							playSound('red')
 							levelMap[card] = 2
 							let otherPlayer = findPlayerForCard(card)
 							decks[currentPlayer].push(card)
@@ -226,52 +232,91 @@ function action(level = 0) {
 						}
 					)
 					break
-				case 4: // Take 2 turns.
+				case 4: // 🟥 🟥 🟥 🟥 Take 2 turns.
 					extraTurns += 2
 					message('Take another turn')
+					playSound('2turns')
+					finishTurn()
 					break
 			}
+			break
 		case 1: // YELLOW
-			switch (level) {
-				case 1: // Swap the top two cards in one deck. Or, swap the top cards from two opponents decks.
-					
+			switch (cardLevel) {
+				case 1: // 🟨 Swap the top two cards in one deck. Or, swap the top cards from two opponents decks.
+					playSound('yellow')
+					// 1. select first card to swap
+					// 2. select 2nd card to swap
+					makeCardsSelectable(filterCards(allPlayers, powerLevel, true),
+						(card) => {
+							// select index
+							finishTurn()
+							let selectableCards = []
+							selectableCards.push
+
+						}
+					)
+
+					finishTurn()
 					break
-				case 2: // Move a top card anywhere within a deck.
+				case 2: // 🟨 🟨 Move a top card anywhere within a deck.
 					// 1. Select a top card
+					makeCardsSelectable(filterCards(allPlayers, powerLevel, true),
+						(card) => {
+							// select index
+							finishTurn()
+						}
+					)
 					// 2. Select an index in deck
+					finishTurn()
 					break
-				case 3: // Move any other card anywhere within a deck.
+				case 3: // 🟨 🟨 🟨 Move any other card anywhere within a deck.
+					makeCardsSelectable(filterCards(allPlayers, powerLevel, false, [card]),
+						(card) => {
+							// select index
+							finishTurn()
+						}
+					)
+					// 2. Select index in deck
+					finishTurn()
+					break
+				case 4: // 🟨 🟨 🟨 🟨 Move a card anywhere within a deck (including this card).
 					// 1. Select a card
 					// 2. Select index in deck
-					break
-				case 4: // Move a card anywhere within a deck (including this card).
-					// 1. Select a card
-					// 2. Select index in deck
+					makeCardsSelectable(filterCards(allPlayers, powerLevel, false),
+						(card) => {
+							// select index
+							finishTurn()
+						}
+					)
 					break
 			}
 			break
 		case 2: // GREEN
-			switch (level) {
-				case 1: // Give this card.
+			switch (cardLevel) {
+				case 1: // 🟩 Give this card. 
 					if (numPlayers != 2) {
 						//select player
 					}
+					playSound('green')
 					var otherPlayer = currentPlayer == 1 ? 0 : 1
 					decks[otherPlayer].push(currentDeck.pop())
 					finishTurn()
 					break
-				case 2: // Give your top card.
+				case 2: // 🟩 🟩 Give your top card. 
 					if (numPlayers != 2) {
 						//select player
 					}
+					playSound('green')
 					var otherPlayer = currentPlayer == 1 ? 0 : 1
 					decks[otherPlayer].push(currentDeck.shift())
 					finishTurn()
 					break
-				case 3: // Give one of your cards. Set it to level 2.
+				case 3: // 🟩 🟩 🟩 Give one of your cards. Set it to level 2.
 					message('Select a card to give')
-					makeCardsSelectable(filterCards([currentPlayer], level),
+					playSound('bink')
+					makeCardsSelectable(filterCards([currentPlayer], powerLevel),
 						(card) => {
+							playSound('green')
 							levelMap[card] = 2
 							if (numPlayers != 2) {
 								//select player
@@ -282,30 +327,29 @@ function action(level = 0) {
 							finishTurn()
 						}
 					)
-
-					//pass a then function , set it as onclick for relevant cards
-
 					break
-				case 4: // Bury a top card.
-					// select card to bury
+				case 4: // 🟩 🟩 🟩 🟩  Bury a top card.
 					message('Select a top card to bury')
-					makeCardsSelectable(filterCards(allPlayers, level, true),
+					playSound('bink')
+					makeCardsSelectable(filterCards(allPlayers, powerLevel, true),
 						(card) => {
 							let player = findPlayerForCard(card)
 							graveyards[player].push(card)
 							removeCard(decks[player], card)
+							playSound('bury')
 							finishTurn()
 						}
 					)
 					break
 			}
 			break
-		case 3: // BLUE
+		case 3: // BLUE 🟦 🟦 🟦 🟦 🟦
 			message('Select a top card to copy')
-			makeCardsSelectable(filterCards(allPlayers, level, true),
+			playSound('blue')
+			makeCardsSelectable(filterCards(allPlayers, powerLevel, true),
 				(card) => {
-					console.log('!!! ' + card)
-					action()
+					//pass()
+					action(card % 4, levelMap[card], powerLevel, true)
 				}
 			)
 			// Copy a top card.
@@ -322,14 +366,12 @@ function filterCards(players, level, topCardsOnly = false, exclusions = []) {
 		for (let card of decks[player]) {
 			if (levelMap[card] <= level && !exclusions.includes(card)) {
 				result.push(card)
-				console.log(card)
 			}
 			if (topCardsOnly) {
 				break;
 			}
 		}
 	}
-	console.log(result)
 	return result
 }
 
@@ -340,15 +382,14 @@ function makeCardsSelectable(selectableCards, handleClick) {
 	} else if (selectableCards.length == 1) {
 		handleClick(selectableCards[0])
 	} else {
-		console.log(selectableCards)
 		for (let card = 0; card < numCards; card++) {
 			let element = get(card)
 			if (selectableCards.includes(card)) {
 				element.onclick = () => handleClick(card);
 			} else {
-				element.style.opacity = ".25"
+				element.style.opacity = ".3"
 			}
-		} 
+		}
 	}
 }
 
@@ -483,6 +524,13 @@ function getColorName(color) {
 		case 2: return 'Green'
 		case 3: return 'Blue'
 	}
+}
+
+function playSound(name) {
+	audio = new Audio();
+	audio.volume = .5
+	audio.src = name + '.wav'
+	audio.play();
 }
 
 function get(id) {
