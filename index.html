@@ -8,7 +8,7 @@
 		.index  { height: 20px; width: 20px; background-color: black; display: none }
 		.graveyardCard	{ height: 20px; width: 20px; display: inline-block; margin: 3px; }
 		.player { display: inline-block; padding-left: 25px; padding-right: 25px; padding-bottom: 10px;}
-		#actionDescription { margin: auto; padding: 20px; width: 300px }
+		#actionDescription { margin: auto; padding: 20px; width: 300px; border: solid;}
 		#topCard { border-style: solid; }
 		#message {font-weight: bold;}
 	</style>
@@ -29,7 +29,7 @@
 		<button class="button" id="actionButton">
 			Action
 		</button>
-		<button class="button" id="promoteButton">
+		<button class="button" id="upgradeButton">
 			Upgrade
 		</button>
 		<button class="button" id="passButton">
@@ -94,7 +94,7 @@ for (i = 0; i < numPlayers; i++) {
 	for (j = 0; j < 12; j++) {
 		let cardId = i * 12 + j
 		if (j < 8) { // deck cards
-			levelMap[cardId] = 3
+			levelMap[cardId] = 1
 			decks[i].push(cardId)
 		} else { // graveyard cards
 			levelMap[cardId] = 0
@@ -105,7 +105,7 @@ for (i = 0; i < numPlayers; i++) {
 }
 get("player0").style.backgroundColor = "darkgray"
 
-function printState(borderTop = false) {
+function printState() {
 	for (i = 0; i < numPlayers; i++) {
 		let deck = get("deck" + i)
 		let graveyard = get("graveyard" + i)
@@ -123,14 +123,18 @@ function printState(borderTop = false) {
 	}
 	let nextCard = decks[currentPlayer][0];
 	let level = levelMap[nextCard]
-	if (borderTop) {
-		get(decks[currentPlayer][0]).style.border = 'solid'
-		get('actionDescription').innerHTML = getColorName(nextCard) + " " + level + " Action: <br>" + getDescription(nextCard % 4, level)
-		get('actionDescription').style.backgroundColor = getColor(nextCard)
-	}
 }
 
-printState(true)
+printState()
+setFocus()
+
+function setFocus() {
+	let card = decks[currentPlayer][0]
+	let level = levelMap[card]
+	get(decks[currentPlayer][0]).style.border = 'solid'
+	get('actionDescription').innerHTML = getColorName(card % 4) + " " + level + " Action: <br>" + getDescription(card % 4, level)
+	get('actionDescription').style.backgroundColor = getColor(card)
+}
 
 function addCard(parent, cardId, isGraveyard) {
 	let card = document.createElement('div')
@@ -150,11 +154,18 @@ function addIndex(parent, player, index) {
 	parent.appendChild(indexDiv)
 }
 
-get('promoteButton').onclick = function() {
-	decrementExtraTurns()
-	promote()
-	playSound('upgrade')
-	finishTurn()
+get('upgradeButton').onclick = function() {
+	let card = decks[currentPlayer][0]
+	if (levelMap[card] < 4) {
+		decrementExtraTurns()
+		levelMap[card]++
+		pass()
+		playSound('upgrade')
+		finishTurn()
+	} else {
+		playSound('unplayable')
+		message("This card cannot be upgraded")
+	}
 }
 
 get('passButton').onclick = function() {
@@ -170,7 +181,7 @@ get('actionButton').onclick = function() {
 	action(card, levelMap[card])
 }
 
-function decrementExtraTurns() {
+function decrementExtraTurns() { // bug if unplayable card
 	if (extraTurns != 0) {
 		extraTurns--
 	}
@@ -186,16 +197,9 @@ function unpass() {
 	currentDeck.unshift(currentDeck.pop())
 }
 
-function promote() {
-	pass()
-	let cardId = currentDeck[currentDeck.length - 1]
-	if (levelMap[cardId] < 4) {
-		levelMap[cardId]++
-	}
-}
-
 function action(card, cardLevel, powerLevel = cardLevel, asBlue = false) {
 	get('buttons').style.display = 'none'
+	
 	if (!asBlue) {
 		pass()
 		printState()
@@ -282,60 +286,17 @@ function action(card, cardLevel, powerLevel = cardLevel, asBlue = false) {
 				case 2: // 🟨 🟨 Move a top card anywhere within a deck.
 					message('Select a top card to move:')
 					playSound('bink')
-					makeCardsSelectable(filterCards(allPlayers, powerLevel, true),
-						(card) => {
-							message('Select index to move card to:')
-							let player = findPlayerForCard(card)
-							playSound('bink2')
-							makeIndicesSelectable(player, card,
-								(toIndex) => {
-									decks[player].shift();
-    								decks[player].splice(toIndex - 1, 0, card);
-									playSound('yellow')
-									finishTurn()
-								}
-							)
-						}
-					)
+					makeCardsSelectable(filterCards(allPlayers, powerLevel, true), moveCardWithinDeck)
 					break
 				case 3: // 🟨 🟨 🟨 Move any other card anywhere within a deck.
 					message('Select a card to move:')
 					playSound('bink')
-					makeCardsSelectable(filterCards(allPlayers, powerLevel, false, [card]),
-						(card) => {
-							message('Select index to move card to')
-							let player = findPlayerForCard(card)
-							playSound('bink2')
-							makeIndicesSelectable(player, card,
-								(toIndex) => {
-									decks[player].shift();
-    								decks[player].splice(toIndex - 1, 0, card);
-									playSound('yellow')
-									finishTurn()
-								}
-							)
-						}
-					)
+					makeCardsSelectable(filterCards(allPlayers, powerLevel, false, [card]), moveCardWithinDeck)
 					break
 				case 4: // 🟨 🟨 🟨 🟨 Move a card anywhere within a deck (including this card).
 					message('Select a card to move:')
 					playSound('bink')
-					makeCardsSelectable(filterCards(allPlayers, powerLevel),
-						(card) => {
-							message('Select index to move card to')
-							let player = findPlayerForCard(card)
-							playSound('bink2')
-							makeIndicesSelectable(player, card,
-								(toIndex) => {
-									decks[player].splice(toIndex, 0, card);
-									let fromIndex = decks[player].indexOf(card)
-									decks[player].splice(fromIndex, 1);
-									playSound('yellow')
-									finishTurn()
-								}
-							)
-						}
-					)
+					makeCardsSelectable(filterCards(allPlayers, powerLevel), moveCardWithinDeck)
 			}
 			break
 		case 2: // GREEN
@@ -363,9 +324,6 @@ function action(card, cardLevel, powerLevel = cardLevel, asBlue = false) {
 						(card) => {
 							playSound('green')
 							levelMap[card] = 2
-							if (numPlayers != 2) {
-								//select player
-							}
 							var otherPlayer = currentPlayer == 1 ? 0 : 1
 							decks[otherPlayer].push(card)
 							removeCard(decks[currentPlayer], card)
@@ -409,6 +367,25 @@ function action(card, cardLevel, powerLevel = cardLevel, asBlue = false) {
 	}
 }
 
+function moveCardWithinDeck(card) {
+	message('Select where to move card to')
+	let player = findPlayerForCard(card)
+	playSound('bink2')
+	makeIndicesSelectable(player, card,
+		(toIndex) => {
+			let fromIndex = decks[player].indexOf(card)
+			decks[player].splice(toIndex, 0, card);
+			if (toIndex <= fromIndex) {
+				fromIndex++
+			}
+			decks[player].splice(fromIndex, 1);
+			playSound('yellow')
+			finishTurn()
+		}
+	)
+}
+
+
 function filterCards(players, level, topCardsOnly = false, exclusions = []) {
 	let result = []
 	for (let player of players) {
@@ -425,14 +402,12 @@ function filterCards(players, level, topCardsOnly = false, exclusions = []) {
 }
 
 function makeCardsSelectable(selectableCards, handleClick) {
-	console.log(selectableCards)
 	if (selectableCards.length == 0) {
 		unplayable()
 	} else if (selectableCards.length == 1) {
 		handleClick(selectableCards[0])
 	} else {
 		for (let card = 0; card < numCards; card++) {
-			console.log(card)
 			let element = get(card)
 			if (selectableCards.includes(card)) {
 				element.style.opacity = "1"
@@ -449,7 +424,8 @@ function unplayable() {
 	message("This action is not playable")
 	unpass()
 	get('buttons').style.display = 'block'
-	printState(true)
+	printState()
+	setFocus()
 }
 
 function makeIndicesSelectable(player, card, handleClick) {
@@ -476,9 +452,10 @@ function finishTurn() {
 			}
 		}
 		get('playerDisplay').innerHTML = "Player " + (currentPlayer + 1) + "'s turn:"
-		message('')
 	}
-	printState(true)
+	message('')
+	printState()
+	setFocus()
 	checkWinConditions()
 	get('buttons').style.display = 'block'
 }
