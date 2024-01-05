@@ -37,7 +37,6 @@
 		</button>
 	</div>
 	<br>
-	
 	<div id='state'>
 		<div id="player0" class="player">
 			<h3>Player 1</h3>
@@ -55,20 +54,9 @@
 	</div>
 	<br>
 	<br>
-	
-	<br>
 	<div id="actionDescription"></div>
-	
 <script type="text/javascript">
 	
-let numPlayers = 2
-let currentPlayer = 0
-let numCards = numPlayers * 12
-let levelMap = [] // map of card to level.
-let decks = []
-let graveyards = []
-let extraTurns = 0;
-
 const descriptions = [
 	[	"Steal an opponent's top card.",
 		"Unearth a card from a graveyard. Set it to level 2.",
@@ -88,22 +76,39 @@ const descriptions = [
 	"Copy a top card."
 ]
 
-for (i = 0; i < numPlayers; i++) {
-	decks[i] = []
-	graveyards[i] = []
-	for (j = 0; j < 12; j++) {
-		let cardId = i * 12 + j
-		if (j < 8) { // deck cards
-			levelMap[cardId] = 1
-			decks[i].push(cardId)
-		} else { // graveyard cards
-			levelMap[cardId] = 0
-			graveyards[i].push(cardId)
+let numPlayers = 2
+let currentPlayer = 0
+let numCards = numPlayers * 12
+let levelMap = [] // map of card to level.
+let decks = []
+let graveyards = []
+let extraTurns = 0;
+
+let consecutiveWinCondition = 4
+let totalWinCondition = 6
+
+setup()
+printState()
+setFocus()
+
+function setup() {
+	for (i = 0; i < numPlayers; i++) {
+		decks[i] = []
+		graveyards[i] = []
+		for (j = 0; j < 12; j++) {
+			let cardId = i * 12 + j
+			if (j < 8) { // deck cards
+				levelMap[cardId] = 1
+				decks[i].push(cardId)
+			} else { // graveyard cards
+				levelMap[cardId] = 0
+				graveyards[i].push(cardId)
+			}
 		}
+		shuffleArray(decks[i])
 	}
-	shuffleArray(decks[i])
+	get("player0").style.backgroundColor = "darkgray"
 }
-get("player0").style.backgroundColor = "darkgray"
 
 function printState() {
 	for (i = 0; i < numPlayers; i++) {
@@ -121,26 +126,13 @@ function printState() {
 			addCard(graveyard, cardId, true)
 		}
 	}
-	let nextCard = decks[currentPlayer][0];
-	let level = levelMap[nextCard]
-}
-
-printState()
-setFocus()
-
-function setFocus() {
-	let card = decks[currentPlayer][0]
-	let level = levelMap[card]
-	get(decks[currentPlayer][0]).style.border = 'solid'
-	get('actionDescription').innerHTML = getColorName(card % 4) + " " + level + " Action: <br>" + getDescription(card % 4, level)
-	get('actionDescription').style.backgroundColor = getColor(card)
 }
 
 function addCard(parent, cardId, isGraveyard) {
 	let card = document.createElement('div')
 	card.setAttribute('class', isGraveyard ? "graveyardCard" : "card")
 	card.setAttribute('id', cardId)
-	card.style.backgroundColor = getColor(cardId % 4)
+	card.style.backgroundColor = getColor(cardId)
 	if (!isGraveyard) {
 		card.innerHTML = levelMap[cardId]
 	}
@@ -152,6 +144,14 @@ function addIndex(parent, player, index) {
 	indexDiv.setAttribute('class', 'index')
 	indexDiv.setAttribute('id', 'index-' + player + '-' + index)
 	parent.appendChild(indexDiv)
+}
+
+function setFocus() {
+	let card = decks[currentPlayer][0]
+	let level = levelMap[card]
+	get(decks[currentPlayer][0]).style.border = 'solid'
+	get('actionDescription').innerHTML = getColorName(card) + " " + level + " Action: <br>" + getDescription(card, level)
+	get('actionDescription').style.backgroundColor = getColor(card)
 }
 
 get('upgradeButton').onclick = function() {
@@ -181,7 +181,7 @@ get('actionButton').onclick = function() {
 	action(card, levelMap[card])
 }
 
-function decrementExtraTurns() { // bug if unplayable card
+function decrementExtraTurns() {
 	if (extraTurns != 0) {
 		extraTurns--
 	}
@@ -262,7 +262,6 @@ function action(card, cardLevel, powerLevel = cardLevel, asBlue = false) {
 					break
 				case 4: // 🟥 🟥 🟥 🟥 Take 2 turns.
 					extraTurns += 2
-					message('Take another turn:')
 					playSound('2turns')
 					finishTurn()
 					break
@@ -347,14 +346,13 @@ function action(card, cardLevel, powerLevel = cardLevel, asBlue = false) {
 			break
 		case 3: // BLUE 🟦 🟦 🟦 🟦 🟦 Copy a top card
 			playSound('blue')
-			let allBlue = true // if all top cards are blue, nothing to do
+			let numBlue = 0 // if all top cards are blue, nothing to do
 			for (let i = 0; i < numPlayers; i++) {
-				if (decks[i][0] % 4 != 3) {
-					allBlue = false
-					break
+				if (decks[i][0] % 4 == 3) {
+					numBlue++
 				}
 			}
-			if (allBlue) {
+			if (numBlue == numPlayers) {
 				finishTurn()
 			} else {
 				message('Select a top card to copy')
@@ -368,7 +366,7 @@ function action(card, cardLevel, powerLevel = cardLevel, asBlue = false) {
 }
 
 function moveCardWithinDeck(card) {
-	message('Select where to move card to')
+	message('Select where to move the card to')
 	let player = findPlayerForCard(card)
 	playSound('bink2')
 	makeIndicesSelectable(player, card,
@@ -421,7 +419,7 @@ function makeCardsSelectable(selectableCards, handleClick) {
 
 function unplayable() {
 	playSound('unplayable')
-	message("This action is not playable")
+	message("This action is not currently playable")
 	unpass()
 	get('buttons').style.display = 'block'
 	printState()
@@ -456,19 +454,18 @@ function finishTurn() {
 	message('')
 	printState()
 	setFocus()
-	checkWinConditions()
 	get('buttons').style.display = 'block'
+	checkWinConditions()
 }
 
-let consecutiveWinCondition = 4
-let totalWinCondition = 6
 
 function checkWinConditions() {
 	for (let player = 0; player < numPlayers; player++) {
 		if (checkWin(player) === true) {
 			playSound('win')
-			alert("PLAYER " + (player + 1) + " WON")
+			printState()
 			get('buttons').style.display = 'none'
+			alert("PLAYER " + (player + 1) + " WON")
 		}
 	}
 }
@@ -525,13 +522,9 @@ function checkWin(player) {
 	return false
 }
 
-
-
-
-
-function getDescription(cardId) {
+function getDescription(cardId, level) {
+	console.log(cardId)
 	let color = cardId % 4
-	let level = levelMap[cardId]
 	if (color == 3) {
 		return descriptions[3]
 	} else {
@@ -539,8 +532,8 @@ function getDescription(cardId) {
 	}
 }
 
-function getColor(color) {
-	switch (color % 4) {
+function getColor(card) {
+	switch (card % 4) {
 		case 0: return 'Red'
 		case 1: return '#FFBF00'
 		case 2: return 'Green'
@@ -548,8 +541,8 @@ function getColor(color) {
 	}
 }
 
-function getColorName(color) {
-	switch (color % 4) {
+function getColorName(card) {
+	switch (card % 4) {
 		case 0: return 'Red'
 		case 1: return 'Yellow'
 		case 2: return 'Green'
@@ -560,7 +553,7 @@ function getColorName(color) {
 function playSound(name) {
 	audio = new Audio();
 	audio.volume = .5
-	audio.src = name + '.wav'
+	audio.src = "audio/" + name + '.wav'
 	audio.play();
 }
 
