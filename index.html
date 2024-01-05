@@ -383,7 +383,6 @@ function moveCardWithinDeck(card) {
 	)
 }
 
-
 function filterCards(players, level, topCardsOnly = false, exclusions = []) {
 	let result = []
 	for (let player of players) {
@@ -458,7 +457,6 @@ function finishTurn() {
 	checkWinConditions()
 }
 
-
 function checkWinConditions() {
 	for (let player = 0; player < numPlayers; player++) {
 		if (checkWin(player) === true) {
@@ -523,7 +521,6 @@ function checkWin(player) {
 }
 
 function getDescription(cardId, level) {
-	console.log(cardId)
 	let color = cardId % 4
 	if (color == 3) {
 		return descriptions[3]
