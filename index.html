@@ -1,6 +1,6 @@
 <html>
 <head>
-	<title>Ivan Game</title>
+	<title>Ivan's Game</title>
 	<link rel='icon' type='image/x-icon' href='favicon.ico'>
 	<style>
 		body    { margin: auto; text-align: center; background-color: white; }
@@ -9,14 +9,11 @@
 		.graveyardCard	{ height: 20px; width: 20px; display: inline-block; margin: 3px; }
 		.player { display: inline-block; padding-left: 25px; padding-right: 25px; padding-bottom: 10px;}
 		#actionDescription { margin: auto; padding: 20px; width: 300px; border: solid;}
-		#topCard { border-style: solid; }
 		#message {font-weight: bold;}
 	</style>
 </head>
 <body>
-	<h1>
-		Ivan Game
-	</h1>
+	<h1> Ivan's Game </h1>
 	<img src='colors.gif'/>
 	<br>
 	<br>
@@ -56,6 +53,10 @@
 	<br>
 	<div id="actionDescription"></div>
 <script type="text/javascript">
+
+if (location.hostname === "") {
+	document.title = "." + document.title
+}
 	
 const descriptions = [
 	[	"Steal an opponent's top card.",
