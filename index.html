@@ -10,13 +10,19 @@
 		.player { display: inline-block; padding-left: 25px; padding-right: 25px; padding-bottom: 10px;}
 		#actionDescription { margin: auto; padding: 20px; width: 300px; border: solid;}
 		#message {font-weight: bold;}
+		table, th, td {
+			border: 2px solid black;
+			margin: auto;
+		}
+
+		td { width: 160px;}
+		.colorColum { width: 75px;}
 	</style>
 </head>
 <body>
 	<h1> Ivan's Game </h1>
 	<img src='colors.gif'/>
-	<br>
-	<br>
+	<br><br>
 	<div id="playerDisplay">
 		Player 1's Turn:
 	</div>
@@ -34,6 +40,8 @@
 		</button>
 	</div>
 	<br>
+	<div id="actionDescription"></div>
+	<br>
 	<div id='state'>
 		<div id="player0" class="player">
 			<h3>Player 1</h3>
@@ -50,8 +58,12 @@
 		</div>
 	</div>
 	<br>
-	<br>
-	<div id="actionDescription"></div>
+	<h2>Color / Power Abilities</h2>
+	<div>
+		<table id="powerTable">
+		</table> 
+	</div>
+	<br><br>
 <script type="text/javascript">
 
 if (location.hostname === "") {
@@ -64,17 +76,24 @@ const descriptions = [
 		"Steal an opponent's card. Set it to level 2.",
 		"Take 2 turns."
 	],
-	[	"Swap the top two cards in one deck. Or, swap the top cards from two opponents decks.",
+	[	"Swap the top 2 cards in a deck. Or, swap the top cards from 2 opponents' decks.",
 		"Move a top card anywhere within a deck.",
 		"Move any other card anywhere within a deck.",
 		"Move a card anywhere within a deck (including this card)."
 	],
 	[	"Give this card.",
 		"Give your top card.",
-		"Give one of your cards. Set it to level 2.",
+		"Give 1 of your cards. Set it to level 2.",
 		"Bury a top card."
 	],
 	"Copy a top card."
+]
+
+const winConditions = [
+	"Have 6 red cards in your hand",
+	"Have 4 consecutive yellow cards in your hand",
+	"Have only green cards (or no cards)",
+	"Any other win condition, but with blue cards"
 ]
 
 let numPlayers = 2
@@ -91,6 +110,30 @@ let totalWinCondition = 6
 setup()
 printState()
 setFocus()
+setupPowerTable()
+
+function setupPowerTable() {	
+	let table = get("powerTable")
+	for (row = 0; row < 5; row++) {
+		let rowDiv = document.createElement("tr")
+		for (column = 0; column < 6; column++) {
+			let color = row - 1
+			let cell = document.createElement("td")
+			if (column === 0) {
+				cell.innerHTML = row === 0 ? "" : getColorName(color)
+				cell.classList.add("colorColumn")
+			} else if (column === 1)  {
+				cell.innerHTML = row === 0 ? "Win Condition" : winConditions[color]
+			} else {
+				let power = column - 1
+				cell.innerHTML = row === 0 ? power : getDescription(color, power)
+				cell.style.backgroundColor = getColor(color)
+			}
+			rowDiv.appendChild(cell)
+		}
+		table.appendChild(rowDiv)
+	}
+}
 
 function setup() {
 	for (i = 0; i < numPlayers; i++) {
@@ -481,7 +524,7 @@ function checkWin(player) {
 		switch (card % 4) {
 			case 0: // Red
 				totalReds++
-				if (totalReds == totalWinCondition) {
+				if (totalReds === totalWinCondition) {
 					return true
 				}
 				consecutiveYellows = 0
@@ -491,7 +534,7 @@ function checkWin(player) {
 				break
 			case 1: // Yellow
 				consecutiveYellows++
-				if (consecutiveYellows == consecutiveWinCondition) {
+				if (consecutiveYellows === consecutiveWinCondition) {
 					return true
 				}
 				consecutiveBlues = 0
@@ -506,8 +549,7 @@ function checkWin(player) {
 			case 3: // Blue
 				totalBlues++
 				consecutiveBlues++
-				if ((consecutiveBlues == consecutiveWinCondition) 
-					|| (totalBlues == totalWinCondition)) {
+				if (consecutiveBlues == consecutiveWinCondition || totalBlues == totalWinCondition) {
 					return true
 				}
 				consecutiveYellows = 0
@@ -572,17 +614,11 @@ function findPlayerForCard(card) {
 	}
 }
 
-function removeCard(arr, card) {
-	arr.splice(arr.indexOf(card), 1)
-}
+function removeCard(arr, card) { arr.splice(arr.indexOf(card), 1) }
 
-function get(id) {
-	return document.getElementById(id)
-}
+function get(id) { return document.getElementById(id) }
 
-function message(message) {
-	get('message').innerHTML = message
-}
+function message(message) {	get('message').innerHTML = message }
 
 </script>
 </body>
