@@ -3,20 +3,19 @@
 	<title>Ivan's Game</title>
 	<link rel='icon' type='image/x-icon' href='favicon.ico'>
 	<style>
-		body    { margin: auto; text-align: center; background-color: white; }
+		body    { margin: auto; text-align: center; background-color: white; font-family: "Lucida Console", monospace; }
 		.card	{ height: 40px; width: 40px; display: inline-block; margin: 3px; }
 		.index  { height: 20px; width: 20px; background-color: black; display: none }
 		.graveyardCard	{ height: 20px; width: 20px; display: inline-block; margin: 3px; }
 		.player { display: inline-block; padding-left: 25px; padding-right: 25px; padding-bottom: 10px;}
 		#actionDescription { margin: auto; padding: 20px; width: 300px; border: solid;}
 		#message {font-weight: bold;}
-		table, th, td {
-			border: 2px solid black;
+		table, td {
 			margin: auto;
+			padding: 5px;
+			text-align: center;
 		}
-
-		td { width: 160px;}
-		.colorColum { width: 75px;}
+		td { width: 190px;}
 	</style>
 </head>
 <body>
@@ -40,7 +39,7 @@
 		</button>
 	</div>
 	<br>
-	<div id="actionDescription"></div>
+	<!-- <div id="actionDescription"></div> -->
 	<br>
 	<div id='state'>
 		<div id="player0" class="player">
@@ -60,10 +59,16 @@
 	<br>
 	<h2>Color / Power Abilities</h2>
 	<div>
-		<table id="powerTable">
-		</table> 
+		<table id="powerTable"></table> 
 	</div>
 	<br><br>
+<!-- 
+TODO: more players 
+TODO: blue power levels
+TODO: clear clickables bug
+TODO: add rules
+-->
+
 <script type="text/javascript">
 
 if (location.hostname === "") {
@@ -71,22 +76,22 @@ if (location.hostname === "") {
 }
 	
 const descriptions = [
-	[	"Steal an opponent's top card.",
-		"Unearth a card from a graveyard. Set it to level 2.",
-		"Steal an opponent's card. Set it to level 2.",
-		"Take 2 turns."
+	[	"Steal an opponent's top card",
+		"Unearth a card from a graveyard. Set it to level 2",
+		"Steal an opponent's card. Set it to level 2",
+		"Take 2 turns"
 	],
-	[	"Swap the top 2 cards in a deck. Or, swap the top cards from 2 opponents' decks.",
-		"Move a top card anywhere within a deck.",
-		"Move any other card anywhere within a deck.",
-		"Move a card anywhere within a deck (including this card)."
+	[	"Swap the top 2 cards in a deck. Or, swap the top cards from 2 opponents' decks",
+		"Move a top card anywhere within a deck",
+		"Move any other card anywhere within a deck",
+		"Move a card anywhere within a deck (including this card)"
 	],
-	[	"Give this card.",
-		"Give your top card.",
-		"Give 1 of your cards. Set it to level 2.",
-		"Bury a top card."
+	[	"Give this card",
+		"Give your top card",
+		"Give 1 of your cards. Set it to level 2",
+		"Bury a top card"
 	],
-	"Copy a top card."
+	"Copy a top card"
 ]
 
 const winConditions = [
@@ -107,35 +112,12 @@ let extraTurns = 0;
 let consecutiveWinCondition = 4
 let totalWinCondition = 6
 
-setup()
+setupCards()
+setupTable()
 printState()
 setFocus()
-setupPowerTable()
 
-function setupPowerTable() {	
-	let table = get("powerTable")
-	for (row = 0; row < 5; row++) {
-		let rowDiv = document.createElement("tr")
-		for (column = 0; column < 6; column++) {
-			let color = row - 1
-			let cell = document.createElement("td")
-			if (column === 0) {
-				cell.innerHTML = row === 0 ? "" : getColorName(color)
-				cell.classList.add("colorColumn")
-			} else if (column === 1)  {
-				cell.innerHTML = row === 0 ? "Win Condition" : winConditions[color]
-			} else {
-				let power = column - 1
-				cell.innerHTML = row === 0 ? power : getDescription(color, power)
-				cell.style.backgroundColor = getColor(color)
-			}
-			rowDiv.appendChild(cell)
-		}
-		table.appendChild(rowDiv)
-	}
-}
-
-function setup() {
+function setupCards() {
 	for (i = 0; i < numPlayers; i++) {
 		decks[i] = []
 		graveyards[i] = []
@@ -152,6 +134,29 @@ function setup() {
 		shuffleArray(decks[i])
 	}
 	get("player0").style.backgroundColor = "darkgray"
+}
+
+function setupTable() {	
+	let table = get("powerTable")
+	for (row = 0; row < 5; row++) {
+		let rowDiv = document.createElement("tr")
+		for (column = 0; column < 5; column++) {
+			let color = row - 1
+			let cell = document.createElement("td")
+			if (column === 4)  {
+				cell.innerHTML = row === 0 ? "Win Condition" : winConditions[color]
+				cell.style.backgroundColor = getColor(color, true)
+			} else {
+				let level = column + 1
+				cell.innerHTML = row === 0 ? "Level " + level : getDescription(color, level)
+				cell.classList.add("cell")
+				cell.style.backgroundColor = getColor(color)
+				cell.id = getColorName(color) + level
+			}
+			rowDiv.appendChild(cell)
+		}
+		table.appendChild(rowDiv)
+	}
 }
 
 function printState() {
@@ -172,6 +177,18 @@ function printState() {
 	}
 }
 
+function setFocus() {
+	let card = decks[currentPlayer][0]
+	let level = levelMap[card]
+	get(decks[currentPlayer][0]).style.border = 'solid 5px'
+	let cells = getAll("cell")
+	for (let i = 0; i < cells.length; i++) {
+		cells[i].style.border = 'none'
+	}
+	get(getColorName(card) + level).style.border = 'solid 5px'
+}
+
+
 function addCard(parent, cardId, isGraveyard) {
 	let card = document.createElement('div')
 	card.setAttribute('class', isGraveyard ? "graveyardCard" : "card")
@@ -188,14 +205,6 @@ function addIndex(parent, player, index) {
 	indexDiv.setAttribute('class', 'index')
 	indexDiv.setAttribute('id', 'index-' + player + '-' + index)
 	parent.appendChild(indexDiv)
-}
-
-function setFocus() {
-	let card = decks[currentPlayer][0]
-	let level = levelMap[card]
-	get(decks[currentPlayer][0]).style.border = 'solid'
-	get('actionDescription').innerHTML = getColorName(card) + " " + level + " Action: <br>" + getDescription(card, level)
-	get('actionDescription').style.backgroundColor = getColor(card)
 }
 
 get('upgradeButton').onclick = function() {
@@ -248,6 +257,7 @@ function action(card, cardLevel, powerLevel = cardLevel, asBlue = false) {
 		pass()
 		printState()
 	}
+
 	currentDeck = decks[currentPlayer]
 	let otherPlayers = []
 	let allPlayers = []
@@ -388,7 +398,7 @@ function action(card, cardLevel, powerLevel = cardLevel, asBlue = false) {
 					)
 			}
 			break
-		case 3: // BLUE 🟦 🟦 🟦 🟦 🟦 Copy a top card
+		case 3: // BLUE 🟦 🟦 🟦 🟦 Copy a top card
 			playSound('blue')
 			let numBlue = 0 // if all top cards are blue, nothing to do
 			for (let i = 0; i < numPlayers; i++) {
@@ -572,12 +582,12 @@ function getDescription(cardId, level) {
 	}
 }
 
-function getColor(card) {
+function getColor(card, light=false) {
 	switch (card % 4) {
-		case 0: return 'Red'
-		case 1: return '#FFBF00'
-		case 2: return 'Green'
-		case 3: return 'CornflowerBlue'
+		case 0: return light ? 'Pink' : 'Red'
+		case 1: return light ? 'lightyellow' : '#FFBF00'
+		case 2: return light ? 'lightgreen' : 'Green'
+		case 3: return light ? "lightblue" : "CornflowerBlue"
 	}
 }
 
@@ -617,6 +627,8 @@ function findPlayerForCard(card) {
 function removeCard(arr, card) { arr.splice(arr.indexOf(card), 1) }
 
 function get(id) { return document.getElementById(id) }
+
+function getAll(clazz) { return document.getElementsByClassName(clazz) }
 
 function message(message) {	get('message').innerHTML = message }
 
