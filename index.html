@@ -19,6 +19,7 @@
 	</style>
 </head>
 <body>
+	<br>
 	<h1> Cirque de Sabotage </h1>
 	<h3>By Ivan Pyzow and Julian Chaidez</h3>
 	<img src='colors.gif'/>
@@ -67,13 +68,13 @@
 TODO: more players 
 TODO: blue power levels
 TODO: clear clickables bug
+TODO: play again option
+TODO: nicer win screen
 -->
 
 <script type="text/javascript">
 
-if (location.hostname === "") {
-	document.title = "." + document.title
-}
+if (location.hostname === "") document.title = "." + document.title
 	
 const descriptions = [
 	[	"Steal an opponent's next card",
@@ -105,11 +106,20 @@ let levelMap = [] // map of card to level.
 let decks = []
 let graveyards = []
 let extraTurns = 0;
-
 let consecutiveWinCondition = 4
 let totalWinCondition = 6
 
 setupCards(); setupTable(); printState(); setFocus()
+
+let music = null
+function setupMusic() {
+	if (music != null) return
+	music = new Audio(); 
+	music.loop = true; 
+	music.src = 'audio/Round Black Glasses.mp3'
+	music.volume = .75
+	music.play()
+}
 
 function setupCards() {
 	for (i = 0; i < numPlayers; i++) {
@@ -194,6 +204,7 @@ function addIndex(parent, player, index) {
 }
 
 get('upgradeButton').onclick = function() {
+	setupMusic()
 	let card = decks[currentPlayer][0]
 	if (levelMap[card] < 4) {
 		decrementExtraTurns(); levelMap[card]++
@@ -205,11 +216,13 @@ get('upgradeButton').onclick = function() {
 }
 
 get('passButton').onclick = function() {
+	setupMusic()
 	decrementExtraTurns(); pass()
 	playSound('pass'); finishTurn()
 }
 
 get('actionButton').onclick = function() {
+	setupMusic()
 	decrementExtraTurns()
 	let card = decks[currentPlayer][0]
 	action(card, levelMap[card])
