@@ -1,0 +1,576 @@
+<html>
+<head>
+	<title>Cirque de Sabotage</title>
+	<link rel='icon' type='image/x-icon' href='favicon.ico'>
+	<style>
+		body    { margin: auto; text-align: center; background-color: white; font-family: "Lucida Console", monospace; }
+		.card	{ height: 40px; width: 40px; display: inline-block; margin: 3px; }
+		.index  { height: 20px; width: 20px; background-color: black; display: none }
+		.graveyardCard	{ height: 20px; width: 20px; display: inline-block; margin: 3px; }
+		.player { display: inline-block; padding-left: 25px; padding-right: 25px; padding-bottom: 10px;}
+		#playerDisplay {
+			/* background-color: pink; */
+		}
+		#actionDescription { margin: auto; padding: 20px; width: 300px; border: solid;}
+		#message {font-weight: bold;}
+		table, td {
+			margin: auto;
+			padding: 5px;
+			text-align: center;
+		}
+		td { width: 190px;}
+	</style>
+</head>
+<body>
+	<br>
+	<h1>Cirque <i>de</i> Sabotage</h1>
+	<h3>Created by Ivan Pyzow & Julian Chaidez</h3>
+	<h4>Programmed by Ben Celsi</h4>
+	<img src='colors.gif'/>
+	<br><br>
+	<div id="play">
+		<div id="playerDisplay">
+			Player 1's Turn:
+		</div>
+		<div id="message"></div>
+		<br>
+		<div id='buttons'>
+			<button class="button" id="actionButton">	Action	</button>
+			<button class="button" id="upgradeButton">	Upgrade	</button>
+			<button class="button" id="passButton">		Pass	</button>
+		</div>
+	</div>
+		
+	<br>
+	<!-- <div id="actionDescription"></div> -->
+	<br>
+	<div id='state'>
+		<div id="player0" class="player">
+			<h3>Player 1</h3>
+			<div class='deck' id="deck0"></div><br>
+			<div class='deck' id="graveyard0"></div>
+		</div>
+		<br>
+		<div id="player1" class="player">
+			<h3>Player 2</h3>
+			<div class='deck' id="deck1"></div><br>
+			<div class='deck' id="graveyard1"></div>
+		</div>
+	</div>
+	<br>
+	<h2>Color / Power Abilities</h2>
+	<div>
+		<table id="powerTable"></table> 
+	</div>
+	<br><br>
+<!-- 
+TODO: more players 
+TODO: blue power levels
+TODO: clear clickables bug
+TODO: play again option
+TODO: nicer win screen
+
+
+Simplest rules idea:
+
+Red
+	Steal an opponents next card
+	Steal any opponent card
+Yellow
+	Swap 2 cards in your deck
+Green
+	Give this card
+	Give your next card
+	Give any card
+	Bury a card
+Blue
+	Copy someones card 
+	Copy someones card
+
+-->
+
+<script type="text/javascript">
+
+if (location.hostname === "") document.title = "." + document.title
+	
+const descriptions = [
+	[	"Steal an opponent's next card",
+		"Unearth a card from a graveyard. Set it to level 2",
+		"Steal an opponent's card. Set it to level 2",
+		"Take 2 turns" ],
+	[	"Swap the top 2 cards in a deck. Or, swap the top cards from 2 opponents' decks",
+		"Move your or an opponent's next card anywhere within a deck",
+		"Move any other card anywhere within a deck",
+		"Move a card anywhere within a deck (including this card)" ],
+	[	"Give this card",
+		"Give your next card",
+		"Give 1 of your cards. Set it to level 2",
+		"Bury someone's next card" ],
+	"Copy someone's next card"
+]
+
+const winConditions = [
+	"Have 6 red cards in your hand",
+	"Have 4 consecutive yellow cards in your hand",
+	"Have only green cards (or no cards)",
+	"Any other win condition, but with blue cards"
+]
+
+let numPlayers = 2
+let currentPlayer = 0
+let numCards = numPlayers * 12
+let levelMap = [] // map of card to level.
+let decks = []
+let graveyards = []
+let extraTurns = 0;
+let consecutiveWinCondition = 4
+let totalWinCondition = 6
+
+setupCards(); setupTable(); printState(); setFocus()
+
+let music = null
+function setupMusic() {
+	if (music != null) return
+	music = new Audio(); 
+	music.loop = true; 
+	music.src = 'audio/Round Black Glasses.mp3'
+	music.volume = .75
+	music.play()
+}
+
+function setupCards() {
+	for (i = 0; i < numPlayers; i++) {
+		decks[i] = []; graveyards[i] = []
+		for (j = 0; j < 12; j++) {
+			let cardId = i * 12 + j
+			if (j < 8) { // deck cards
+				levelMap[cardId] = 1; decks[i].push(cardId)
+			} else { // graveyard cards
+				levelMap[cardId] = 0; graveyards[i].push(cardId)
+			}
+		}
+		shuffleArray(decks[i])
+	}
+	get("player0").style.backgroundColor = "darkgray"
+}
+
+function setupTable() {
+	let table = get("powerTable")
+	for (row = 0; row < 5; row++) {
+		let rowDiv = document.createElement("tr")
+		for (column = 0; column < 5; column++) {
+			let color = row - 1
+			let cell = document.createElement("td")
+			if (column === 4)  {
+				cell.innerHTML = row === 0 ? "Win Condition" : winConditions[color]
+				cell.style.backgroundColor = getColor(color, true)
+			} else {
+				let level = column + 1
+				cell.innerHTML = row === 0 ? "Level " + level : getDescription(color, level)
+				cell.classList.add("cell")
+				cell.style.backgroundColor = getColor(color)
+				cell.id = getColorName(color) + level
+			}
+			rowDiv.appendChild(cell)
+		}
+		table.appendChild(rowDiv)
+	}
+}
+
+function printState() {
+	for (i = 0; i < numPlayers; i++) {
+		let deck = get("deck" + i)
+		let graveyard = get("graveyard" + i)
+		deck.innerHTML = graveyard.innerHTML = ''
+		for (let j = 0; j < decks[i].length; j++) {
+			addIndex(deck, i, j)
+			addCard(deck, decks[i][j], false)
+		}
+		addIndex(deck, i, decks[i].length)
+		for (let j = 0; j < graveyards[i].length; j++) {
+			let cardId = graveyards[i][j]
+			addCard(graveyard, cardId, true)
+		}
+	}
+}
+
+function setFocus() {
+	let card = decks[currentPlayer][0]
+	let level = levelMap[card]
+	get(decks[currentPlayer][0]).style.border = 'solid 5px'
+	let cells = getAll("cell")
+	for (let i = 0; i < cells.length; i++) { cells[i].style.border = 'none' }
+	get(getColorName(card) + level).style.border = 'solid 5px'
+}
+
+
+function addCard(parent, cardId, isGraveyard) {
+	let card = document.createElement('div')
+	card.setAttribute('class', isGraveyard ? "graveyardCard" : "card")
+	card.setAttribute('id', cardId)
+	card.style.backgroundColor = getColor(cardId)
+	if (!isGraveyard) { card.innerHTML = levelMap[cardId] }
+	parent.appendChild(card)
+}
+
+function addIndex(parent, player, index) {
+	let indexDiv = document.createElement('div')
+	indexDiv.setAttribute('class', 'index')
+	indexDiv.setAttribute('id', 'index-' + player + '-' + index)
+	parent.appendChild(indexDiv)
+}
+
+get('upgradeButton').onclick = function() {
+	setupMusic()
+	let card = decks[currentPlayer][0]
+	if (levelMap[card] < 4) {
+		decrementExtraTurns(); levelMap[card]++
+		pass(); playSound('upgrade'); finishTurn()
+	} else {
+		playSound('unplayable')
+		message("This card cannot be upgraded")
+	}
+}
+
+get('passButton').onclick = function() {
+	setupMusic()
+	decrementExtraTurns(); pass()
+	playSound('pass'); finishTurn()
+}
+
+get('actionButton').onclick = function() {
+	setupMusic()
+	decrementExtraTurns()
+	let card = decks[currentPlayer][0]
+	action(card, levelMap[card])
+}
+
+function decrementExtraTurns() {
+	if (extraTurns != 0) extraTurns--
+}
+
+function pass() {
+	currentDeck = decks[currentPlayer];
+	currentDeck.push(currentDeck.shift())
+}
+
+function unpass() {
+	currentDeck = decks[currentPlayer];
+	currentDeck.unshift(currentDeck.pop())
+}
+
+function action(card, cardLevel, powerLevel = cardLevel, asBlue = false) {
+	get('buttons').style.display = 'none'
+	
+	if (!asBlue) { pass(); printState() }
+
+	currentDeck = decks[currentPlayer]
+	let otherPlayers = []; let allPlayers = []
+	for (let player = 0; player < numPlayers; player++) {
+		allPlayers.push(player)
+		if (player != currentPlayer) {
+			otherPlayers.push(player)
+		}
+	}
+
+	switch (card % 4) {
+		case 0 : // RED
+			switch (cardLevel) {
+				case 1: // 🟥 Steal an opponent's top card.
+					makeCardsSelectable(filterCards(otherPlayers, powerLevel, true),
+						(card) => {
+							let otherPlayer = findPlayerForCard(card)
+							decks[currentPlayer].push(card)
+							decks[otherPlayer].shift()
+							playSound('red')
+							finishTurn()
+						}
+					)
+					break
+				case 2: // 🟥 🟥 Unearth a card from a graveyard. Set it to level 2.
+					message('Select a card from a graveyard:')
+					let graveyardCards = []
+					for (let i = 0; i < numPlayers; i++) {
+						graveyardCards = graveyardCards.concat(graveyards[i])
+					}
+					playSound('bink')
+					makeCardsSelectable(graveyardCards, 
+						(card) => {
+							levelMap[card] = 2
+							let player = findPlayerForCard(card)
+							decks[player].push(card)
+							removeCard(graveyards[player], card)
+							playSound('unearth')
+							finishTurn()
+						}
+					)
+					break
+				case 3: // 🟥 🟥 🟥 Steal an opponent's card. Set it to level 2.
+					message('Select a card to steal:')
+					playSound('bink')
+					makeCardsSelectable(filterCards(otherPlayers, powerLevel),
+						(card) => {
+							let otherPlayer = findPlayerForCard(card)
+							decks[currentPlayer].push(card)
+							decks[otherPlayer].splice(decks[otherPlayer].indexOf(card), 1)
+							levelMap[card] = 2
+							playSound('red')
+							finishTurn()
+						}
+					)
+					break
+				case 4: // 🟥 🟥 🟥 🟥 Take 2 turns.
+					extraTurns += 2
+					playSound('2turns')
+					finishTurn()
+					break
+			}
+			break
+		case 1: // YELLOW
+			switch (cardLevel) {
+				case 1: // 🟨 Swap the top two cards in one deck. Or, swap the top cards from two opponents decks.
+					message('Select top card to swap:')
+					playSound('bink')
+					makeCardsSelectable(filterCards(allPlayers, powerLevel, true),
+						(card) => {
+							let player = findPlayerForCard(card)
+							decks[player].shift()
+							decks[player].splice(1, 0, card)
+							playSound('yellow')
+							finishTurn()
+						}
+					)
+					break
+				case 2: // 🟨 🟨 Move a top card anywhere within a deck.
+					message('Select a top card to move:')
+					playSound('bink')
+					makeCardsSelectable(filterCards(allPlayers, powerLevel, true), moveCardWithinDeck)
+					break
+				case 3: // 🟨 🟨 🟨 Move any other card anywhere within a deck.
+					message('Select a card to move:')
+					playSound('bink')
+					makeCardsSelectable(filterCards(allPlayers, powerLevel, false, [card]), moveCardWithinDeck)
+					break
+				case 4: // 🟨 🟨 🟨 🟨 Move a card anywhere within a deck (including this card).
+					message('Select a card to move:')
+					playSound('bink')
+					makeCardsSelectable(filterCards(allPlayers, powerLevel), moveCardWithinDeck)
+			}
+			break
+		case 2: // GREEN
+			switch (cardLevel) {
+				case 1: // 🟩 Give this card. 
+					playSound('green')
+					var otherPlayer = currentPlayer == 1 ? 0 : 1
+					decks[otherPlayer].push(currentDeck.pop())
+					finishTurn()
+					break
+				case 2: // 🟩 🟩 Give your top card.
+					var otherPlayer = currentPlayer == 1 ? 0 : 1
+					if (levelMap[currentDeck[0]] <= powerLevel) {
+						playSound('green')
+						decks[otherPlayer].push(currentDeck.shift())
+						finishTurn()
+					} else { unplayable() }
+					break
+				case 3: // 🟩 🟩 🟩 Give one of your cards. Set it to level 2.
+					message('Select a card to give')
+					playSound('bink')
+					makeCardsSelectable(filterCards([currentPlayer], powerLevel),
+						(card) => {
+							playSound('green')
+							levelMap[card] = 2
+							var otherPlayer = currentPlayer == 1 ? 0 : 1
+							decks[otherPlayer].push(card)
+							removeCard(decks[currentPlayer], card)
+							finishTurn()
+						}
+					)
+					break
+				case 4: // 🟩 🟩 🟩 🟩  Bury a top card.
+					message('Select a top card to bury')
+					playSound('bink')
+					makeCardsSelectable(filterCards(allPlayers, powerLevel, true),
+						(card) => {
+							let player = findPlayerForCard(card)
+							graveyards[player].push(card)
+							removeCard(decks[player], card)
+							playSound('bury')
+							finishTurn()
+						}
+					)
+			}
+			break
+		case 3: // BLUE 🟦 🟦 🟦 🟦 Copy a top card
+			playSound('blue')
+			let numBlue = 0 // if all top cards are blue, nothing to do
+			for (let i = 0; i < numPlayers; i++) {
+				if (decks[i][0] % 4 == 3) { numBlue++ }
+			}
+			if (numBlue == numPlayers) { finishTurn() } 
+			else {
+				message('Select a top card to copy')
+				makeCardsSelectable(filterCards(allPlayers, powerLevel, true),
+					(card) => { action(card % 4, levelMap[card], powerLevel, true) })
+			}
+	}
+}
+
+function moveCardWithinDeck(card) {
+	message('Select where to move the card to')
+	let player = findPlayerForCard(card)
+	playSound('bink2')
+	makeIndicesSelectable(player, card,
+		(toIndex) => {
+			let fromIndex = decks[player].indexOf(card)
+			decks[player].splice(toIndex, 0, card)
+			if (toIndex <= fromIndex) { fromIndex++ }
+			decks[player].splice(fromIndex, 1)
+			playSound('yellow'); finishTurn()
+		}
+	)
+}
+
+function filterCards(players, level, topCardsOnly = false, exclusions = []) {
+	let result = []
+	for (let player of players) {
+		for (let card of decks[player]) {
+			if (levelMap[card] <= level && !exclusions.includes(card)) result.push(card)
+			if (topCardsOnly) break
+		}
+	}
+	return result
+}
+
+function makeCardsSelectable(selectableCards, handleClick) {
+	if (selectableCards.length == 0) { unplayable() }
+	else if (selectableCards.length == 1) { handleClick(selectableCards[0]) }
+	else {
+		for (let card = 0; card < numCards; card++) {
+			let element = get(card)
+			if (selectableCards.includes(card)) {
+				element.style.opacity = "1"
+				element.onclick = () => handleClick(card) }
+			else { element.style.opacity = ".3" }
+		}
+	}
+}
+
+function unplayable() {
+	playSound('unplayable'); message("This action is not currently playable")
+	unpass(); get('buttons').style.display = 'block'; printState(); setFocus()
+}
+
+function makeIndicesSelectable(player, card, handleClick) {
+	for (let i = 0; i < numCards; i++) {
+		if (i != card) { get(i).style.opacity = ".3" }}
+	for (let index = 0; index <= decks[player].length; index++) {
+		let indexDiv = get("index-" + player + "-" + index)
+		indexDiv.style.display = "inline-block"
+		indexDiv.onclick = () => handleClick(index)
+	}
+}
+
+function finishTurn() {
+	if (extraTurns == 0) {
+		currentPlayer = currentPlayer == numPlayers - 1 ? 0 : currentPlayer + 1
+		for (let player = 0; player < numPlayers; player++) {
+			if (player == currentPlayer) { get("player" + player).style.backgroundColor = "darkgray" }
+			else { get("player" + player).style.backgroundColor = "white" }
+		}
+		get('playerDisplay').innerHTML = "Player " + (currentPlayer + 1) + "'s turn:"
+	}
+	message(''); printState(); setFocus(); get('buttons').style.display = 'block'
+	checkWinConditions()
+}
+
+function checkWinConditions() {
+	for (let player = 0; player < numPlayers; player++) {
+		if (checkWin(player) === true) {
+			playSound('win'); printState(); get('buttons').style.display = 'none'
+			alert("PLAYER " + (player + 1) + " WON")
+		}
+	}
+}
+
+function checkWin(player) {
+	let totalReds = consecutiveYellows = totalBlues = consecutiveBlues = 0
+	let onlyGreens = true
+	let onlyBlues = false
+	for (let i = 0; i < decks[player].length; i++) {
+		let card = decks[player][i]
+		switch (card % 4) {
+			case 0: // Red
+				totalReds++
+				if (totalReds === totalWinCondition) return true
+				consecutiveYellows = consecutiveBlues = 0
+				onlyGreens = onlyBlues = false; break
+			case 1: // Yellow
+				consecutiveYellows++
+				if (consecutiveYellows === consecutiveWinCondition) return true
+				consecutiveBlues = 0; onlyGreens = onlyBlues = false; break
+			case 2: // Green
+				consecutiveYellows = consecutiveBlues = 0
+				onlyBlues = false; break
+			case 3: // Blue
+				totalBlues++; consecutiveBlues++
+				if (consecutiveBlues == consecutiveWinCondition || totalBlues == totalWinCondition) return true
+				consecutiveYellows = 0; onlyGreens = false
+		}
+	}
+	if (onlyGreens || onlyBlues) return true
+	return false
+}
+
+function getDescription(cardId, level) {
+	let color = cardId % 4
+	if (color == 3) return descriptions[3]
+	else { return descriptions[color][level - 1] }
+}
+
+function getColor(card, light = false) {
+	switch (card % 4) {
+		case 0: return light ? 'Pink' : 'Red'
+		case 1: return light ? 'lightyellow' : '#FFBF00'
+		case 2: return light ? 'lightgreen' : 'Green'
+		case 3: return light ? "lightblue" : "CornflowerBlue"
+	}
+}
+
+function getColorName(card) {
+	switch (card % 4) {
+		case 0: return 'Red'
+		case 1: return 'Yellow'
+		case 2: return 'Green'
+		case 3: return 'Blue'
+	}
+}
+
+function playSound(name) {
+	audio = new Audio(); audio.volume = .5
+	audio.src = "audio/" + name + '.wav'; audio.play();
+}
+
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        let temp = array[i]; array[i] = array[j]; array[j] = temp;
+    }
+}
+
+function findPlayerForCard(card) {
+	for (let i = 0; i < numPlayers; i++) {
+		if (decks[i].includes(card) || graveyards[i].includes(card)) { return i }
+	}
+}
+
+function removeCard(arr, card) { arr.splice(arr.indexOf(card), 1) }
+
+function get(id) { return document.getElementById(id) }
+
+function getAll(clazz) { return document.getElementsByClassName(clazz) }
+
+function message(message) {	get('message').innerHTML = message }
+
+</script>
+</body>
